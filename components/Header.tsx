@@ -20,13 +20,13 @@ export const Header: React.FC = () => {
                     THẦY HỒ CANG - THPT CHU VĂN AN
                 </span>
             </div>
-            <p className={`text-${theme}-100 text-xs mt-0.5`}>PDF/Image to Text via Gemini</p>
+            <p className={`text-${theme}-100 text-xs mt-0.5`}>PDF/Image to Text via Gemini 2.5 Flash</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
             <div className={`hidden md:flex items-center gap-2 text-sm font-medium text-${theme}-100 bg-white/10 px-3 py-1 rounded-full`}>
                 <Wand2 className="w-4 h-4" />
-                <span>Gemini 3 AI</span>
+                <span>Gemini 2.5 AI</span>
             </div>
         </div>
       </div>

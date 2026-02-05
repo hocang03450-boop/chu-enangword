@@ -2,7 +2,7 @@
 import { GoogleGenAI, Schema, Type } from "@google/genai";
 import { pdfToImageBase64 } from "./pdfService";
 
-// Define the response schema for structured output - Simplified: No figures/coordinates
+// Define the response schema for structured output
 const conversionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -15,7 +15,6 @@ const conversionSchema: Schema = {
 };
 
 const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: string; mimeType: string } }> => {
-  // If it's a PDF, we convert it to an Image (JPEG) first.
   if (file.type === 'application/pdf') {
     const base64Data = await pdfToImageBase64(file);
     return {
@@ -26,7 +25,6 @@ const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: s
     };
   }
 
-  // If it's already an image, read it directly
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -49,12 +47,8 @@ export interface ConversionResult {
 }
 
 export const extractContentWithSmartCrop = async (file: File): Promise<ConversionResult> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key is missing in environment variables.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const modelName = 'gemini-3-flash-preview'; 
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const modelName = 'gemini-2.5-flash'; 
 
   try {
     const filePart = await fileToGenerativePart(file);
@@ -78,19 +72,14 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
                - Ví dụ: $\\frac{a}{b}$, $\\int x dx$, $A \\xrightarrow{t^o} B$.
             
             3. BẢNG BIỂU (TABLES):
-               - Tái tạo bảng bằng HTML <table> với border="1".
+               - Tái tạo bảng bằng HTML <table> với border="1". Giữ đúng cấu trúc hàng và cột.
             
-            4. HÌNH ẢNH & BIỂU ĐỒ (QUAN TRỌNG):
-               - Người dùng sẽ tự chèn hình ảnh thủ công sau bằng công cụ Cắt.
-               - Nếu gặp hình ảnh/biểu đồ/sơ đồ phức tạp mà không nên chuyển thành text: HÃY BỎ QUA VIỆC MÔ TẢ BẰNG LỜI.
-               - Thay vào đó, BẮT BUỘC chèn dòng code HTML này vào đúng vị trí của ảnh để người dùng biết chỗ chèn:
+            4. HÌNH ẢNH & BIỂU ĐỒ:
+               - Nếu gặp hình ảnh/biểu đồ không thể chuyển thành text, hãy chèn dòng thông báo:
                  "<p style='color:red; font-style:italic; text-align:center;'>[Vị trí Hình ảnh/Biểu đồ - Hãy dùng nút 'Cắt & Chèn ảnh' để thêm vào đây]</p>"
-               - TUYỆT ĐỐI KHÔNG tự bịa nội dung hình ảnh.
             
             5. OUTPUT:
-               - Chỉ trả về JSON chứa HTML sạch.
-               
-            Output JSON format strictly conforming to schema.`
+               - Chỉ trả về JSON chứa HTML sạch theo đúng schema.`
           }
         ]
       },
@@ -102,56 +91,27 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
     });
 
     let jsonText = response.text;
-    if (!jsonText) throw new Error("Empty response from AI");
+    if (!jsonText) throw new Error("Không nhận được phản hồi từ AI");
 
-    // Robust JSON cleaning
-    jsonText = jsonText.trim();
-    if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-    
-    // Attempt to find JSON object if there's preamble text
-    const firstBrace = jsonText.indexOf('{');
-    const lastBrace = jsonText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
-    }
-
-    const parsed = JSON.parse(jsonText);
-    
+    const parsed = JSON.parse(jsonText.trim());
     return {
       html: parsed.html_content
     };
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // Handle safety ratings blocking
-    if (error.response?.promptFeedback?.blockReason) {
-        throw new Error(`Bị chặn bởi bộ lọc an toàn: ${error.response.promptFeedback.blockReason}`);
-    }
     throw new Error(error.message || "Đã xảy ra lỗi khi xử lý tài liệu.");
   }
 };
 
-/**
- * Generates an image from a text prompt using Gemini 2.5 Flash Image model.
- */
 export const generateImageFromText = async (prompt: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key is missing in environment variables.");
-  }
-
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.0-flash-preview',
+      model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [
-          { text: prompt }
-        ],
+        parts: [{ text: prompt }],
       },
       config: {
         imageConfig: {
@@ -160,18 +120,16 @@ export const generateImageFromText = async (prompt: string): Promise<string> => 
       },
     });
 
-    if (response.candidates && response.candidates.length > 0) {
+    if (response.candidates?.[0]?.content?.parts) {
        for (const part of response.candidates[0].content.parts) {
          if (part.inlineData) {
            return `data:image/png;base64,${part.inlineData.data}`;
          }
        }
     }
-
-    throw new Error("Không tìm thấy hình ảnh trong kết quả trả về.");
-
+    throw new Error("Không tìm thấy hình ảnh trong kết quả.");
   } catch (error: any) {
     console.error("Image Generation Error:", error);
-    throw new Error(error.message || "Đã xảy ra lỗi khi tạo hình ảnh.");
+    throw new Error(error.message || "Lỗi khi tạo hình ảnh.");
   }
 };
