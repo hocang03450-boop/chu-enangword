@@ -1,0 +1,5 @@
+{
+  "name": "Copy of TealDoc AI Converter",
+  "description": "Chuyển đổi PDF và Hình ảnh sang Word bằng Gemini AI. Hỗ trợ ghép trang PDF, cắt ảnh thông minh và xử lý công thức Toán/Hóa.",
+  "requestFramePermissions": []
+}
