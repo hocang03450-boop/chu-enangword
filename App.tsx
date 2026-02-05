@@ -9,7 +9,7 @@ import { ImageCropper } from './components/ImageCropper';
 import { FileData, Status } from './types';
 import { extractContentWithSmartCrop, generateImageFromText } from './services/geminiService';
 import { fileToCanvas, getPdfPageCount } from './services/pdfService';
-import { ArrowRight, AlertCircle, Crop, PlusCircle, Key } from 'lucide-react';
+import { ArrowRight, AlertCircle, Crop, PlusCircle } from 'lucide-react';
 import { useTheme, Theme } from './contexts/ThemeContext';
 
 const App: React.FC = () => {
@@ -31,8 +31,6 @@ const App: React.FC = () => {
   const [genImage, setGenImage] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
-
-  const apiKeyMissing = !process.env.API_KEY || process.env.API_KEY === "";
 
   const handleFileSelect = async (data: FileData | null) => {
     if (!data) {
@@ -119,7 +117,7 @@ const App: React.FC = () => {
     setStatus(Status.PROCESSING);
     setError(null);
     try {
-      setProgressMsg("Gemini 2.5 Flash đang phân tích...");
+      setProgressMsg("Gemini AI đang phân tích...");
       const aiResponse = await extractContentWithSmartCrop(fileData.file);
       const reader = new FileReader();
       reader.readAsDataURL(fileData.file);
@@ -148,15 +146,6 @@ const App: React.FC = () => {
       {isCropping && fileData?.previewUrl && <ImageCropper imageSrc={fileData.previewUrl} onConfirm={handleCropConfirm} onCancel={() => setIsCropping(false)} />}
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full">
-        {apiKeyMissing && (
-          <div className="mb-6 bg-red-100 border-l-4 border-red-500 p-4 rounded shadow-sm">
-            <div className="flex items-center gap-3 text-red-700">
-              <Key className="w-5 h-5" />
-              <p className="font-bold text-sm">Chưa cấu hình API Key. Vui lòng kiểm tra lại môi trường.</p>
-            </div>
-          </div>
-        )}
-
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex bg-white/50 p-1 rounded-xl border border-gray-200 shadow-sm backdrop-blur-sm">
             <button onClick={() => setActiveTab('convert')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'convert' ? `bg-${theme}-600 text-white shadow-md` : 'text-gray-600'}`}>Chuyển đổi Tài liệu</button>
@@ -175,7 +164,7 @@ const App: React.FC = () => {
             <div className="flex flex-col gap-6">
               <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><span className={`flex items-center justify-center w-8 h-8 rounded-full bg-${theme}-100 text-${theme}-700 text-sm font-bold`}>1</span>Tải lên</h2>
               {isPreparingPreview ? <div className="h-[300px] flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200"><div className={`w-10 h-10 border-4 border-${theme}-200 border-t-${theme}-600 rounded-full animate-spin mb-3`}></div><p className="text-sm">{progressMsg}</p></div> : <FileUpload onFileSelect={handleFileSelect} selectedFile={fileData} disabled={status === Status.PROCESSING} />}
-              {fileData && status !== Status.SUCCESS && !isPreparingPreview && <div className="flex gap-2"><Button onClick={handleConvert} isLoading={status === Status.PROCESSING} className="flex-grow text-lg shadow-lg">Bắt đầu xử lý (2.5 Flash)</Button><Button variant="secondary" onClick={() => { setCropIntent('process'); setIsCropping(true); }} disabled={status === Status.PROCESSING}><Crop className="w-5 h-5" /></Button></div>}
+              {fileData && status !== Status.SUCCESS && !isPreparingPreview && <div className="flex gap-2"><Button onClick={handleConvert} isLoading={status === Status.PROCESSING} className="flex-grow text-lg shadow-lg">Bắt đầu xử lý</Button><Button variant="secondary" onClick={() => { setCropIntent('process'); setIsCropping(true); }} disabled={status === Status.PROCESSING}><Crop className="w-5 h-5" /></Button></div>}
               {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2 text-sm"><AlertCircle className="w-4 h-4 mt-0.5" />{error}</div>}
             </div>
             <div className="flex flex-col gap-6">
@@ -192,7 +181,7 @@ const App: React.FC = () => {
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
               <textarea value={genPrompt} onChange={(e) => setGenPrompt(e.target.value)} placeholder="Mô tả hình ảnh muốn tạo..." className="w-full p-4 rounded-xl border-2 border-gray-200 focus:border-blue-500 outline-none min-h-[100px]" />
-              <div className="flex justify-end"><Button onClick={async () => { setGenStatus(Status.PROCESSING); try { const img = await generateImageFromText(genPrompt); setGenImage(img); setGenStatus(Status.SUCCESS); } catch (e: any) { setGenError(e.message); setGenStatus(Status.ERROR); } }} isLoading={genStatus === Status.PROCESSING} disabled={!genPrompt.trim()} className="px-6">Tạo ảnh với Gemini 2.5</Button></div>
+              <div className="flex justify-end"><Button onClick={async () => { setGenStatus(Status.PROCESSING); try { const img = await generateImageFromText(genPrompt); setGenImage(img); setGenStatus(Status.SUCCESS); } catch (e: any) { setGenError(e.message); setGenStatus(Status.ERROR); } }} isLoading={genStatus === Status.PROCESSING} disabled={!genPrompt.trim()} className="px-6">Tạo ảnh AI</Button></div>
             </div>
             {(genStatus === Status.PROCESSING || genImage || genError) && <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 min-h-[300px] flex flex-col items-center justify-center p-8">{genStatus === Status.PROCESSING ? <div className="animate-spin w-10 h-10 border-4 border-t-blue-600 rounded-full"></div> : genError ? <p className="text-red-500">{genError}</p> : genImage && <img src={genImage} className="max-w-full shadow-lg rounded-lg" />}</div>}
           </div>
