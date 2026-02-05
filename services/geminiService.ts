@@ -2,13 +2,13 @@
 import { GoogleGenAI, Schema, Type } from "@google/genai";
 import { pdfToImageBase64 } from "./pdfService";
 
-// Define the response schema for structured output
+// Định nghĩa schema cho phản hồi JSON
 const conversionSchema: Schema = {
   type: Type.OBJECT,
   properties: {
     html_content: {
       type: Type.STRING,
-      description: "The full document content converted to HTML. Use <table> for tables. Simple Math/Chem should be Unicode text. Complex reaction schemes must be LaTeX wrapped in $. Do not include image placeholders.",
+      description: "Nội dung tài liệu đã chuyển sang HTML.",
     }
   },
   required: ["html_content"]
@@ -47,7 +47,13 @@ export interface ConversionResult {
 }
 
 export const extractContentWithSmartCrop = async (file: File): Promise<ConversionResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || apiKey === "") {
+    throw new Error("LỖI CẤU HÌNH: API Key chưa được thiết lập trên Vercel. Vui lòng thêm API_KEY trong phần Environment Variables của Project Settings.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const modelName = 'gemini-2.5-flash'; 
 
   try {
@@ -59,27 +65,7 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
         parts: [
           filePart,
           {
-            text: `Bạn là chuyên gia OCR, Toán học và Hóa học. Nhiệm vụ: Chuyển đổi hình ảnh tài liệu thành văn bản định dạng HTML để xuất sang Word.
-            
-            QUY TẮC XỬ LÝ QUAN TRỌNG:
-            
-            1. VĂN BẢN (TEXT/UNICODE):
-               - Trích xuất TOÀN BỘ văn bản chính xác tuyệt đối. Giữ nguyên xuống dòng và định dạng đoạn văn.
-               - Toán/Hóa đơn giản: Dùng ký tự UNICODE (vd: H₂O, CO₂, x², π, →).
-            
-            2. CÔNG THỨC PHỨC TẠP (LATEX):
-               - BẮT BUỘC dùng LaTeX kẹp giữa dấu $ cho công thức phức tạp (phân số, tích phân, căn thức lớn, sơ đồ phản ứng, ma trận).
-               - Ví dụ: $\\frac{a}{b}$, $\\int x dx$, $A \\xrightarrow{t^o} B$.
-            
-            3. BẢNG BIỂU (TABLES):
-               - Tái tạo bảng bằng HTML <table> với border="1". Giữ đúng cấu trúc hàng và cột.
-            
-            4. HÌNH ẢNH & BIỂU ĐỒ:
-               - Nếu gặp hình ảnh/biểu đồ không thể chuyển thành text, hãy chèn dòng thông báo:
-                 "<p style='color:red; font-style:italic; text-align:center;'>[Vị trí Hình ảnh/Biểu đồ - Hãy dùng nút 'Cắt & Chèn ảnh' để thêm vào đây]</p>"
-            
-            5. OUTPUT:
-               - Chỉ trả về JSON chứa HTML sạch theo đúng schema.`
+            text: `Bạn là chuyên gia OCR. Hãy trích xuất văn bản từ hình ảnh và trả về định dạng HTML sạch (chỉ dùng thẻ p, table, b, i, h1, h2). Giữ nguyên cấu trúc bảng nếu có.`
           }
         ]
       },
@@ -90,7 +76,7 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
       }
     });
 
-    let jsonText = response.text;
+    const jsonText = response.text;
     if (!jsonText) throw new Error("Không nhận được phản hồi từ AI");
 
     const parsed = JSON.parse(jsonText.trim());
@@ -100,12 +86,18 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw new Error(error.message || "Đã xảy ra lỗi khi xử lý tài liệu.");
+    if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("403")) {
+        throw new Error("API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại cấu hình trên Vercel.");
+    }
+    throw new Error(error.message || "Đã xảy ra lỗi khi kết nối với Gemini AI.");
   }
 };
 
 export const generateImageFromText = async (prompt: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("Thiếu API Key để tạo ảnh.");
+
+  const ai = new GoogleGenAI({ apiKey });
   
   try {
     const response = await ai.models.generateContent({

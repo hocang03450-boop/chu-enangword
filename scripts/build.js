@@ -10,14 +10,20 @@ async function build() {
     fs.mkdirSync(buildDir);
   }
 
-  console.log('🚀 Starting production build for Vercel...');
+  console.log('🚀 Đang bắt đầu quá trình build cho Vercel...');
 
-  // Lấy API_KEY từ biến môi trường của hệ thống build
-  const apiKey = process.env.API_KEY || '';
-  console.log(`🔑 API_KEY status: ${apiKey ? 'Found' : 'NOT FOUND'}`);
+  // Lấy API_KEY từ môi trường build của Vercel
+  const apiKey = process.env.API_KEY;
+
+  if (!apiKey) {
+    console.warn('⚠️ CẢNH BÁO: Không tìm thấy biến môi trường API_KEY.');
+    console.warn('Vui lòng thêm API_KEY vào Project Settings > Environment Variables trên Vercel.');
+  } else {
+    console.log('✅ Đã tìm thấy API_KEY. Đang nhúng vào bundle...');
+  }
 
   try {
-    // 1. Bundle code
+    // 1. Bundle code và nhúng API_KEY vào mã máy khách
     await esbuild.build({
       entryPoints: ['index.tsx'],
       bundle: true,
@@ -26,7 +32,8 @@ async function build() {
       minify: true,
       sourcemap: false,
       define: {
-        'process.env.API_KEY': JSON.stringify(apiKey)
+        // Chuyển giá trị từ môi trường build vào biến toàn cục trong code frontend
+        'process.env.API_KEY': JSON.stringify(apiKey || '')
       },
       external: [
         'react', 
@@ -43,25 +50,24 @@ async function build() {
       },
     });
 
-    console.log('✅ JS Bundle created.');
+    console.log('✅ Tạo JS Bundle thành công.');
 
-    // 2. Patch index.html
+    // 2. Vá file index.html để trỏ đúng vào file js đã bundle
     let html = fs.readFileSync('index.html', 'utf8');
-    // Thay thế index.tsx bằng index.js và xóa dấu / ở đầu để tránh lỗi đường dẫn tuyệt đối
     html = html.replace('src="index.tsx"', 'src="index.js"');
     html = html.replace('src="/index.tsx"', 'src="index.js"');
     
     fs.writeFileSync('build/index.html', html);
-    console.log('✅ HTML patched.');
+    console.log('✅ Đã vá file HTML.');
 
-    // 3. Copy metadata
+    // 3. Sao chép các file bổ trợ
     if (fs.existsSync('metadata.json')) {
       fs.copyFileSync('metadata.json', 'build/metadata.json');
     }
 
-    console.log('✨ Build finished successfully.');
+    console.log('✨ Quá trình build hoàn tất thành công!');
   } catch (e) {
-    console.error('❌ Build failed:', e);
+    console.error('❌ Build thất bại:', e);
     process.exit(1);
   }
 }
