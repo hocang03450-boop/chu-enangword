@@ -47,14 +47,15 @@ export interface ConversionResult {
 }
 
 export const extractContentWithSmartCrop = async (file: File): Promise<ConversionResult> => {
+  // esbuild sẽ thay thế chuỗi này bằng giá trị thực tế lúc build
   const apiKey = process.env.API_KEY;
   
-  if (!apiKey || apiKey === "") {
-    throw new Error("LỖI CẤU HÌNH: API Key chưa được thiết lập trên Vercel. Vui lòng thêm API_KEY trong phần Environment Variables của Project Settings.");
+  if (!apiKey || apiKey === "" || apiKey === "undefined") {
+    throw new Error("LỖI CẤU HÌNH: Ứng dụng đã được build NHƯNG KHÔNG tìm thấy API_KEY. \n\nHướng dẫn: \n1. Đảm bảo bạn đã thêm API_KEY vào Settings của Vercel.\n2. BẠN PHẢI VÀO TAB 'DEPLOYMENTS' VÀ NHẤN 'REDEPLOY' thì Vercel mới nạp Key vào bản build mới được.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const modelName = 'gemini-2.5-flash'; 
+  const modelName = 'gemini-3-flash-preview'; 
 
   try {
     const filePart = await fileToGenerativePart(file);
@@ -65,7 +66,7 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
         parts: [
           filePart,
           {
-            text: `Bạn là chuyên gia OCR. Hãy trích xuất văn bản từ hình ảnh và trả về định dạng HTML sạch (chỉ dùng thẻ p, table, b, i, h1, h2). Giữ nguyên cấu trúc bảng nếu có.`
+            text: `Bạn là chuyên gia OCR. Hãy trích xuất văn bản từ hình ảnh và trả về định dạng HTML sạch (chỉ dùng thẻ p, table, b, i, h1, h2). Giữ nguyên cấu trúc bảng nếu có. Nếu có công thức toán học, hãy giữ nguyên văn bản.`
           }
         ]
       },
@@ -87,7 +88,7 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("403")) {
-        throw new Error("API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại cấu hình trên Vercel.");
+        throw new Error("API Key của bạn không hợp lệ (Sai hoặc chưa bật Billing). Kiểm tra lại tại ai.google.dev");
     }
     throw new Error(error.message || "Đã xảy ra lỗi khi kết nối với Gemini AI.");
   }

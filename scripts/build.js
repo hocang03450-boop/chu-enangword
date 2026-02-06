@@ -16,10 +16,10 @@ async function build() {
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    console.warn('⚠️ CẢNH BÁO: Không tìm thấy biến môi trường API_KEY.');
-    console.warn('Vui lòng thêm API_KEY vào Project Settings > Environment Variables trên Vercel.');
+    console.warn('⚠️ CẢNH BÁO: Biến môi trường API_KEY đang TRỐNG!');
   } else {
-    console.log('✅ Đã tìm thấy API_KEY. Đang nhúng vào bundle...');
+    // Chỉ in ra độ dài để bảo mật nhưng giúp xác nhận Key đã tồn tại
+    console.log(`✅ Đã tìm thấy API_KEY (Độ dài: ${apiKey.length} ký tự).`);
   }
 
   try {
@@ -32,7 +32,7 @@ async function build() {
       minify: true,
       sourcemap: false,
       define: {
-        // Chuyển giá trị từ môi trường build vào biến toàn cục trong code frontend
+        // esbuild sẽ thay thế mọi chỗ ghi 'process.env.API_KEY' bằng giá trị chuỗi này
         'process.env.API_KEY': JSON.stringify(apiKey || '')
       },
       external: [
