@@ -92,36 +92,3 @@ export const extractContentWithSmartCrop = async (file: File): Promise<Conversio
     throw new Error(error.message || "Đã xảy ra lỗi khi kết nối với Gemini AI.");
   }
 };
-
-export const generateImageFromText = async (prompt: string): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("Thiếu API Key để tạo ảnh.");
-
-  const ai = new GoogleGenAI({ apiKey });
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1",
-        }
-      },
-    });
-
-    if (response.candidates?.[0]?.content?.parts) {
-       for (const part of response.candidates[0].content.parts) {
-         if (part.inlineData) {
-           return `data:image/png;base64,${part.inlineData.data}`;
-         }
-       }
-    }
-    throw new Error("Không tìm thấy hình ảnh trong kết quả.");
-  } catch (error: any) {
-    console.error("Image Generation Error:", error);
-    throw new Error(error.message || "Lỗi khi tạo hình ảnh.");
-  }
-};
